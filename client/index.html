@@ -1,0 +1,352 @@
+<head>
+	<style>
+		button {
+			height: 25;
+			width: 105;
+		}
+
+		input {
+			height: 25;
+		}
+	</style>
+	<title>Game Template | ArjhanToteck</title>
+	<link rel="icon" href="/favicon.png">
+	<link href="https://arjhantoteck.vercel.app/style.css" rel="stylesheet" type="text/css" media="all">
+</head>
+
+<body>
+	<h1 class="glitch" id="heading" data-text="Game Template ">Game Template </h1>
+	<div id="menu">
+		<br>
+		<button onclick="hostGameMenu.style.display = 'block'; joinGameMenu.style.display = 'none'; document.onkeydown = function(event){if(event.key == 'Enter') startGame()}; hostGameUsername.focus();">Host Game</button>
+		<button onclick="joinGameMenu.style.display = 'block'; hostGameMenu.style.display = 'none'; document.onkeydown = function(event){if(event.key == 'Enter') joinGame()}; joinGameCode.focus();">Join Game</button>
+		<br>
+		<br>
+		<div id="hostGameMenu" style="display:none;">
+			<input id="hostGameUsername" placeholder="Username">
+			<br>
+			<span id="hostGameError" style="display:none; color:red;">
+				<br>
+			</span>
+			<br>
+			<button onclick="startGame()">Go</button>
+		</div>
+		<div id="joinGameMenu" style="display:none;">
+			<input autocomplete="off" id="joinGameCode" placeholder="Game Code">
+			<input autocomplete="off" id="joinGameUsername" placeholder="Username">
+			<br>
+			<span id="joinGameError" style="display:none; color:red;">
+				<br>
+			</span>
+			<br>
+			<button onclick="joinGame()">Join</button>
+		</div>
+		<h2>Public Games</h2>
+		Don't have a group of friends available to play? Join a public game by using one of the codes below!
+		<div id="publicGames"></div>
+	</div>
+	<br>
+	<div id="game" style="display:none;" width:100%>
+		<div id="navbar" class="navbar" style="display:none; left: 0px; background-color:#191919;">
+			<span id="navbarText" class="glitch" style="left: 10px;" data-text="Game Template"> Game Template &nbsp;</span>
+			<button onclick="leaveGame()">Leave Game</button>
+			<a href="/"><button>Home</button></a>
+			<a href="instructions.html"><button>How to Play</button></a>
+			<a href="credits.html"><button>Credits</button></a>
+		</div>
+		<br>
+		<br>
+		<div id="chat"></div>
+		<br>
+		<div id="chatInput" style="position: fixed; bottom:10; width:100%">
+			<input style="width:75%" autocomplete="off" placeholder="Message" autofocus id="messageBox">
+			<button onclick="sendMessage()">Send</button>
+		</div>
+	</div>
+</body>
+
+<script>
+	// enter your own server address here
+	const server = "tic-tac-toe.arjhantoteck.repl.co";
+	let password;
+	let gameCode;
+	let connection;
+
+	// checks if previously saved game
+	if (!!localStorage.code && !!localStorage.password) {
+		// sets data
+		password = localStorage.password;
+		gameCode = localStorage.code;
+
+		// sets up connection
+		setUpConnection();
+
+		// shows game
+		menu.style.display = "none";
+		game.style.display = "block";
+		heading.style.display = "none";
+		navbar.style.display = "block";
+		navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+		navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+		messageBox.focus();
+
+		// adds enter key event listener
+		document.addEventListener('keydown', function(event) {
+			if (event.key == "Enter") {
+				sendMessage();
+			}
+		});
+	} else {
+		// shows public games
+		fetch(`https://${server}/publicGames`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				if (response.ok) {
+					return response.text();
+				} else {
+					publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+					return;
+				}
+			})
+			.then(data => {
+
+				// checks if no data returned
+				if (!data || JSON.parse(data).length == 0) {
+					publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+					return;
+				}
+
+				// displays public games
+				let publicGamesList = "<br><li>" + JSON.parse(data).join("</li><li>") + "</li>";
+				publicGames.innerHTML = publicGamesList;
+			}).catch(function(error) {
+				publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+				return;
+			});
+	}
+
+	function startGame(name = undefined) {
+
+		// sets name
+		if (!name) {
+			name = hostGameUsername.value;
+		}
+
+		let responseOk = true;
+
+		// creates game and gets code
+		fetch(`https://${server}/startGame?name=${encodeURIComponent(name)}`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				responseOk = response.ok;
+
+				return response.text();
+			})
+			.then(data => {
+				// checks if response was ok
+				if (responseOk == false) {
+					// throws recieved data as error
+					throw new Error(data);
+					return;
+				}
+
+				// clears onkeydown event listener
+				document.onkeydown = undefined;
+
+				let parsedData = JSON.parse(data);
+
+				// sets password
+				localStorage.password = parsedData.password;
+				password = parsedData.password;
+
+				// sets code
+				localStorage.code = parsedData.code;
+				gameCode = parsedData.code;
+
+				// shows game
+				menu.style.display = "none";
+				game.style.display = "block";
+				heading.style.display = "none";
+				navbar.style.display = "block";
+				navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+				navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+				messageBox.focus();
+
+
+				// adds enter key event listener
+				document.addEventListener('keydown', function(event) {
+					if (event.key == "Enter") {
+						sendMessage();
+					}
+				})
+
+				setUpConnection();
+			}).catch(function(error) {
+				if (error.message == "Failed to fetch") error.message = "There was a problem connecting to the server. This means either the server is having issues or your internet is.";
+				hostGameError.style.display = "block";
+				hostGameError.innerHTML = "<br>" + error.message;
+			});
+	}
+
+	function joinGame(code = undefined, name = undefined) {
+
+		// sets name
+		if (!name) {
+			name = joinGameUsername.value;
+		}
+
+		// sets code
+		if (!code) {
+			code = joinGameCode.value;
+		}
+
+		let responseOk = true;
+
+		fetch(`https://${server}/joinGame?code=${code}&name=${encodeURIComponent(name)}`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				responseOk = response.ok;
+
+				return response.text();
+			})
+			.then(function(data) {
+				// checks if response was ok
+				if (responseOk == false) {
+					// throws recieved data as error
+					throw new Error(data);
+					return;
+				}
+
+				// clears onkeydown event listener
+				document.onkeydown = undefined;
+
+				// sets password
+				localStorage.password = data;
+				password = data;
+
+				// sets code
+				localStorage.code = code;
+				gameCode = code;
+
+				// shows game
+				menu.style.display = "none";
+				game.style.display = "block";
+				heading.style.display = "none";
+				navbar.style.display = "block";
+				navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+				navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+				messageBox.focus();
+
+				// adds enter key event listener
+				document.addEventListener('keydown', function(event) {
+					if (event.key == "Enter") {
+						sendMessage();
+					}
+				});
+
+				setUpConnection();
+			}).catch(function(error) {
+				if (error.message == "Failed to fetch") error.message = "There was a problem connecting to the server. This means either the server is having issues or your internet is.";
+				joinGameError.style.display = "block";
+				joinGameError.innerHTML = "<br>" + error.message;
+			});
+	}
+
+	function leaveGame(){
+		connection.send(JSON.stringify({
+			password: password,
+			code: gameCode,
+			action: "leaveGame",
+			date: new Date().toUTCString()
+		}));
+	}
+
+	function setUpConnection() {
+		// establishes connection with websocket server
+		connection = new WebSocket(`wss://${server}`);
+
+		// waits until connection opened
+		connection.addEventListener("open", function(event) {
+			console.log("opened");
+			connection.send(JSON.stringify({
+				password: password,
+				code: gameCode,
+				action: "linkConnection"
+			}));
+		});
+
+		// checks if scrolled down (for auto scroll script)
+		let scrolledToBottom = true;
+
+		window.onscroll = function(e) {
+			scrolledToBottom = (window.innerHeight + window.pageYOffset) >= document.body.offsetHeight;
+		};
+
+		// recieve websocket messages
+		connection.addEventListener("message", function(event) {
+			const message = JSON.parse(event.data);
+			handleWebSocketMessage(message, scrolledToBottom);
+		});
+	}
+
+	function sendMessage() {
+		connection.send(JSON.stringify({
+			password: password,
+			code: gameCode,
+			action: "sendMessage",
+			date: new Date().toUTCString(),
+			message: messageBox.value
+		}));
+		messageBox.value = "";
+	}
+
+	function handleWebSocketMessage(message, scrolledToBottom) {
+		console.log(message);
+
+		switch (message.action) {
+			// recieves chat message
+			case "recieveMessage":
+				// loops through every sent message
+				for (var i = 0; i < message.messages.length; i++) {
+					// parses date
+					let date = new Date(message.messages[i].date);
+					let dateString = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().substring(2)}, ${date.getHours() > 12 ? date.getHours() - 12 : date.getHours()}:${date.getMinutes().toString().length == 2 ? date.getMinutes() : "0" + date.getMinutes()} ${date.getHours() > 12 ? "PM" : "AM"}`;
+
+					// shows each message
+					chat.innerHTML += `<div><span style="background-color: white; color: #262626">${message.messages[i].sender} (${dateString})</span><br><span>${message.messages[i].message}</span><br><br></div>`;
+
+				}
+
+				// autoscroll script
+				if (scrolledToBottom) {
+					window.scrollTo(0, document.body.scrollHeight);
+				}
+				break;
+
+				// clears chat
+			case "clearChat":
+				chat.innerHTML = "";
+				connection.close();
+				setUpConnection();
+				break;
+
+				// game closes
+			case "gameClosed":
+				alert(message.message);
+				localStorage.clear();
+				location.reload();
+				break;
+
+				// alert
+			case "alert":
+				alert(message.message);
+				break;
+		}
+	}
+</script>
