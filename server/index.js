@@ -6,7 +6,7 @@ const Game = require("./Game.js").Game;
 const Player = require("./Player.js").Player;
 
 // replace this with frontend domain
-const frontend = "https://null.jsbin.com";
+const frontend = "https://arjhantoteck.vercel.app/";
 
 // opens http server
 let server = http.createServer(function(req, res) {
