@@ -15,8 +15,21 @@ function Player(name, game, host = false) {
 	// connections
 	this.connections = [];
 
-	this.leaveGame = function(){
-		if(game.inGame && !game.gameEnded){
+	this.chatSendPermission = "everyone";
+	this.chatViewPermissions = [{
+			name: "everyone", // public messages, where most chat happens
+			start: new Date(0), // early date to see messages sent before joining
+			end: null
+		},
+		{
+			name: `user:${this.name}`, // private messages to only user, typically from Moderator
+			start: new Date(0), // early date to see messages sent before joining
+			end: null
+		}
+	];
+
+	this.leaveGame = function() {
+		if (game.inGame && !game.gameEnded) {
 			// tells player they can't leave game
 			for (let i = 0; i < this.connections.length; i++) {
 				this.connections[i].sendUTF(JSON.stringify({
@@ -27,7 +40,7 @@ function Player(name, game, host = false) {
 			return;
 		}
 
-		if(this.game.players.length > 1){
+		if (this.game.players.length > 1) {
 			// leaves from frontend
 			for (let i = 0; i < this.connections.length; i++) {
 				this.connections[i].sendUTF(JSON.stringify({
@@ -42,12 +55,13 @@ function Player(name, game, host = false) {
 				messages: [{
 					sender: "Moderator",
 					message: `${this.name} has left the game.`,
-					date: new Date()
+					date: new Date(),
+					permission: "everyone"
 				}]
 			});
 
 			// checks if game was host
-			if(this.host){
+			if (this.host) {
 				this.game.players[1].host = true;
 
 				// tells other playes there is a new host
@@ -56,7 +70,8 @@ function Player(name, game, host = false) {
 					messages: [{
 						sender: "Moderator",
 						message: `${this.name} used to be host, but since they left, ${this.game.players[1].name} is now host.`,
-						date: new Date()
+						date: new Date(),
+						permission: "everyone"
 					}]
 				});
 			}
@@ -105,8 +120,8 @@ function Player(name, game, host = false) {
 	// onMessageEvents
 	this.onMessageEvents = [
 		// leaving game
-		function(message, player){
-			if(message.action == "leaveGame"){
+		function(message, player) {
+			if (message.action == "leaveGame") {
 				player.leaveGame();
 			}
 		},
@@ -121,7 +136,8 @@ function Player(name, game, host = false) {
 						message: message.message.replace(/[\u00A0-\u9999<>\&]/gim, i => {
 							return '&#' + i.charCodeAt(0) + ';'
 						}), // removes html from message
-						date: new Date()
+						date: new Date(),
+						permission: "everyone"
 					}]
 				};
 
@@ -147,7 +163,8 @@ function Player(name, game, host = false) {
 									messages: [{
 										sender: "Moderator",
 										message: "I thought we were friends!",
-										date: new Date()
+										date: new Date(),
+										permission: "everyone"
 									}]
 								});
 
@@ -173,7 +190,8 @@ function Player(name, game, host = false) {
 									messages: [{
 										sender: "Moderator",
 										message: `There is no player in the game called "${message.message.substring(5)}". Check your spelling or try copy-pasting their name.`,
-										date: new Date()
+										date: new Date(),
+										permission: "everyone"
 									}]
 								});
 
@@ -189,7 +207,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `Are you sure you want to permanently ban ${message.message.substring(5)} out of the game? They will not be able to join back into the game. Bans cannot be reverted. Type <c>confirm</c> to confirm the ban.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -201,7 +220,7 @@ function Player(name, game, host = false) {
 							player.onMessageEvents.push(function(message, player) {
 								// makes sure second time being called
 								timesFired++;
-								if(timesFired == 1) return;
+								if (timesFired == 1) return;
 
 								if (message.action == "sendMessage" && !!message.message) {
 									if (message.message == "confirm") {
@@ -211,7 +230,8 @@ function Player(name, game, host = false) {
 											messages: [{
 												sender: "Moderator",
 												message: `${target.name} was permanently banned by ${player.name}. Ouch.`,
-												date: new Date()
+												date: new Date(),
+												permission: "everyone"
 											}]
 										});
 
@@ -230,7 +250,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: "You can't ban anyone, lol, you dont have host permissions.",
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 						}
@@ -240,7 +261,8 @@ function Player(name, game, host = false) {
 							messages: [{
 								sender: "Moderator",
 								message: "The game already started, too late to ban anyone now.",
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 					}
@@ -260,7 +282,8 @@ function Player(name, game, host = false) {
 									messages: [{
 										sender: "Moderator",
 										message: "I thought we were friends!",
-										date: new Date()
+										date: new Date(),
+										permission: "everyone"
 									}]
 								});
 
@@ -286,7 +309,8 @@ function Player(name, game, host = false) {
 									messages: [{
 										sender: "Moderator",
 										message: `There is no player in the game called "${message.message.substring(6)}". Check your spelling or try copy-pasting their name.`,
-										date: new Date()
+										date: new Date(),
+										permission: "everyone"
 									}]
 								});
 
@@ -302,7 +326,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `Are you sure you want to kick ${message.message.substring(6)} out of the game? They will still be able to join back. Type <c>confirm</c> to kick them out.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -314,7 +339,7 @@ function Player(name, game, host = false) {
 							player.onMessageEvents.push(function(message, player) {
 								// makes sure second time being called
 								timesFired++;
-								if(timesFired == 1) return;
+								if (timesFired == 1) return;
 								if (message.action == "sendMessage" && !!message.message) {
 									if (message.message == "confirm") {
 										// sends message confirming kick
@@ -323,7 +348,8 @@ function Player(name, game, host = false) {
 											messages: [{
 												sender: "Moderator",
 												message: `${target.name} was kicked by ${player.name}.`,
-												date: new Date()
+												date: new Date(),
+												permission: "everyone"
 											}]
 										});
 
@@ -332,8 +358,8 @@ function Player(name, game, host = false) {
 									}
 								}
 
-									// event listener self destructs
-									player.onMessageEvents.splice(index, 1);
+								// event listener self destructs
+								player.onMessageEvents.splice(index, 1);
 							});
 
 						} else {
@@ -342,7 +368,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: "You can't kick anyone out, lmao, you dont have host permissions.",
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 						}
@@ -352,7 +379,8 @@ function Player(name, game, host = false) {
 							messages: [{
 								sender: "Moderator",
 								message: "The game already started, too late to kick anyone out now.",
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 					}
@@ -360,20 +388,21 @@ function Player(name, game, host = false) {
 
 				// !vote command
 				if (message.message.substring(0, 6) == "!vote ") {
-					if(player.dead){
+					if (player.dead) {
 						player.game.sendMessage({
 							action: "recieveMessage",
 							messages: [{
 								sender: "Moderator",
 								message: "You're dead, lmao.",
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 
 						return;
 					}
 
-					if(player.game.votingOpen){
+					if (player.game.votingOpen) {
 						// !vote Moderator easter egg
 						if (message.message == "!vote Moderator") {
 							player.game.sendMessage({
@@ -381,7 +410,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: "What's wrong with you! I'm the moderator, an all-powerful being who doesn't even have a neck to be hung by!",
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -407,7 +437,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `There is no player in the game called "${message.message.substring(6)}". Check your spelling or try copy-pasting their name.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -422,7 +453,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `Who's gonna tell ${player.name} that ${target.name} is dead?`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -437,7 +469,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `The game settings are set to not allow you to vote for yourself.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -448,29 +481,33 @@ function Player(name, game, host = false) {
 						// valid target
 
 						// removes current vote if applicable
-						if(!!player.vote){
+						if (!!player.vote) {
 							player.game.votes[player.vote.name].voters.splice(player.game.votes[player.vote.name].voters.indexOf(player, 1));
 						}
 
 						// adds vote
-						if(!player.game.votes[target.name]) player.game.votes[target.name] = {player: target, voters: []};
+						if (!player.game.votes[target.name]) player.game.votes[target.name] = {
+							player: target,
+							voters: []
+						};
 						player.game.votes[target.name].voters.push(player);
 						player.vote = target;
 
 						// gets list of voters
 						var votersList = [];
 
-						for(let i = 0; i < player.game.votes[target.name].voters.length; i++){
+						for (let i = 0; i < player.game.votes[target.name].voters.length; i++) {
 							votersList.push(player.game.votes[target.name].voters[i].name);
 						}
 
-						if(player != target){
+						if (player != target) {
 							player.game.sendMessage({
 								action: "recieveMessage",
 								messages: [{
 									sender: "Moderator",
 									message: `${player.name} is voting to lynch ${target.name}. \n People who voted for ${target.name}: <br> &nbsp; - ${votersList.join("<br> &nbsp; - ")}`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 						} else {
@@ -479,7 +516,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `${player.name} is voting to lynch themselves. An interesting move indeed. People who voted for ${target.name}: <br> &nbsp; - ${votersList.join("<br> &nbsp; - ")}`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 						}
@@ -502,40 +540,43 @@ function Player(name, game, host = false) {
 							messages: [{
 								sender: "Moderator",
 								message: `All players currently in the game: ${playersList.join(", ")}`,
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 						break;
 
-					// !settings command
+						// !settings command
 					case "!settings":
 						player.game.sendMessage({
 							action: "recieveMessage",
 							messages: [{
 								sender: "Moderator",
 								message: `Settings: <br> &nbsp; - Allow players to join (<c>!settings allowPlayersToJoin</c>): ${player.game.settings.allowPlayersToJoin} <br> &nbsp; - Public (<c>!settings public</c>): ${player.game.settings.public} <br>`,
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 
 						// checks if game started
-						if (player.game.inGame){
+						if (player.game.inGame) {
 							player.game.sendMessage({
 								action: "recieveMessage",
 								messages: [{
 									sender: "Moderator",
 									message: "Note you cannot change these settings anymore since you are in the middle of a game.",
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 						}
-						
+
 						break;
 
-					// !settings allowPlayersToJoin command
+						// !settings allowPlayersToJoin command
 					case "!settings allowPlayersToJoin":
 						// checks if game started
-						if(player.game.inGame){
+						if (player.game.inGame) {
 							return;
 						}
 
@@ -546,7 +587,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `You need to have host permissions to change game settings.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -563,16 +605,17 @@ function Player(name, game, host = false) {
 							messages: [{
 								sender: "Moderator",
 								message: `New players are ${player.game.settings.allowPlayersToJoin ? "now" : "no longer"} able to join the game.`,
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 
 						break;
 
-					// !settings public command
+						// !settings public command
 					case "!settings public":
 						// checks if game started
-						if(player.game.inGame){
+						if (player.game.inGame) {
 							return;
 						}
 
@@ -583,7 +626,8 @@ function Player(name, game, host = false) {
 								messages: [{
 									sender: "Moderator",
 									message: `You need to have host permissions to make the game public.`,
-									date: new Date()
+									date: new Date(),
+									permission: "everyone"
 								}]
 							});
 
@@ -593,13 +637,12 @@ function Player(name, game, host = false) {
 						// valid usage of command
 						let Game = player.game.constructor;
 
-
 						// sets to private
-						if(player.game.settings.public){
+						if (player.game.settings.public) {
 							player.game.settings.public = false;
-							Game.publicGames.splice(Game.publicGames.indexOf(player.game) , 1);
+							Game.publicGames.splice(Game.publicGames.indexOf(player.game), 1);
 
-						// sets to public
+							// sets to public
 						} else {
 							player.game.settings.public = true;
 							Game.publicGames.push(player.game);
@@ -610,22 +653,24 @@ function Player(name, game, host = false) {
 							messages: [{
 								sender: "Moderator",
 								message: `The game was now set to ${player.game.settings.public ? "public" : "private"}.`,
-								date: new Date()
+								date: new Date(),
+								permission: "everyone"
 							}]
 						});
 
 						break;
 
-					// !start command
+						// !start command
 					case "!start":
 						if (player.game.inGame == false) {
-							if (player.game.players.length < 5){
+							if (player.game.players.length < 5) {
 								player.game.sendMessage({
 									action: "recieveMessage",
 									messages: [{
 										sender: "Moderator",
 										message: `You need at least 5 people to play the game. You currently only have ${player.game.players.length}. You can invite more people to join with the code "${player.game.code}".`,
-										date: new Date()
+										date: new Date(),
+										permission: "everyone"
 									}]
 								});
 							} else {
