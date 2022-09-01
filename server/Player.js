@@ -1,5 +1,10 @@
 const Game = require("./Game.js");
 
+// exports player constructor
+module.exports = {
+	Player
+}
+
 // player constructor
 function Player(name, game, host = false) {
 	this.name = name.replace(/[\u00A0-\u9999<>\&]/gim, i => {
@@ -386,144 +391,6 @@ function Player(name, game, host = false) {
 					}
 				}
 
-				// !vote command
-				if (message.message.substring(0, 6) == "!vote ") {
-					if (player.dead) {
-						player.game.sendMessage({
-							action: "recieveMessage",
-							messages: [{
-								sender: "Moderator",
-								message: "You're dead, lmao.",
-								date: new Date(),
-								permission: "everyone"
-							}]
-						});
-
-						return;
-					}
-
-					if (player.game.votingOpen) {
-						// !vote Moderator easter egg
-						if (message.message == "!vote Moderator") {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: "What's wrong with you! I'm the moderator, an all-powerful being who doesn't even have a neck to be hung by!",
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-
-							// exits function
-							return;
-						}
-
-						let target = null;
-
-						// loops through players in game
-						for (let i = 0; i < player.game.players.length; i++) {
-							// checks if current player name matches target name
-							if (player.game.players[i].name == message.message.substring(6)) {
-								target = player.game.players[i];
-								break;
-							}
-						}
-
-						// target not found
-						if (target == null) {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: `There is no player in the game called "${message.message.substring(6)}". Check your spelling or try copy-pasting their name.`,
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-
-							// exits function
-							return;
-						}
-
-						// dead target
-						if (target.dead) {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: `Who's gonna tell ${player.name} that ${target.name} is dead?`,
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-
-							// exits function
-							return;
-						}
-
-						// checks if self vote
-						if (player == target && !player.game.settings.allowSelfVotes) {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: `The game settings are set to not allow you to vote for yourself.`,
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-
-							// exits function
-							return;
-						}
-
-						// valid target
-
-						// removes current vote if applicable
-						if (!!player.vote) {
-							player.game.votes[player.vote.name].voters.splice(player.game.votes[player.vote.name].voters.indexOf(player, 1));
-						}
-
-						// adds vote
-						if (!player.game.votes[target.name]) player.game.votes[target.name] = {
-							player: target,
-							voters: []
-						};
-						player.game.votes[target.name].voters.push(player);
-						player.vote = target;
-
-						// gets list of voters
-						var votersList = [];
-
-						for (let i = 0; i < player.game.votes[target.name].voters.length; i++) {
-							votersList.push(player.game.votes[target.name].voters[i].name);
-						}
-
-						if (player != target) {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: `${player.name} is voting to lynch ${target.name}. \n People who voted for ${target.name}: <br> &nbsp; - ${votersList.join("<br> &nbsp; - ")}`,
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-						} else {
-							player.game.sendMessage({
-								action: "recieveMessage",
-								messages: [{
-									sender: "Moderator",
-									message: `${player.name} is voting to lynch themselves. An interesting move indeed. People who voted for ${target.name}: <br> &nbsp; - ${votersList.join("<br> &nbsp; - ")}`,
-									date: new Date(),
-									permission: "everyone"
-								}]
-							});
-						}
-					}
-				}
-
 				switch (message.message) {
 					// !players command
 					case "!players":
@@ -682,9 +549,4 @@ function Player(name, game, host = false) {
 			}
 		}
 	];
-}
-
-// exports player constructor
-module.exports = {
-	Player
 }
