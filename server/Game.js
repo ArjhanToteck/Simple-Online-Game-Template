@@ -1,6 +1,11 @@
 const Player = require('./Player.js').Player;
 const deepClone = require("lodash.clonedeep");
 
+// exports game constructor
+module.exports = {
+	Game
+}
+
 // game constructor
 Game.games = [];
 Game.codes = [];
@@ -218,9 +223,4 @@ function Game() {
 			if (Game.publicGames.includes(this)) Game.publicGames.splice(index, 1);
 		}
 	}, 900000); // 900000 milliseconds = 15 minutes
-}
-
-// exports game constructor
-module.exports = {
-	Game
 }
