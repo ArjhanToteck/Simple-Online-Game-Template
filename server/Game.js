@@ -61,7 +61,6 @@ function Game() {
 
 		// generates player
 		let player = new Player(name, this);
-		player.game = this;
 		this.players.push(player);
 		this.passwords.push(player.password);
 

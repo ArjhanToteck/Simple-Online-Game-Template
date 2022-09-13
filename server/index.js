@@ -6,7 +6,7 @@ const Game = require("./Game.js").Game;
 const Player = require("./Player.js").Player;
 
 // replace this with frontend domain
-const frontend = "https://arjhantoteck.vercel.app/";
+const frontend = "https://arjhantoteck.vercel.app";
 
 // opens http server
 let server = http.createServer(function(req, res) {
@@ -25,12 +25,14 @@ let server = http.createServer(function(req, res) {
 			const action = req.url.split("/")[1].split("?")[0];
 
 			switch (action) {
-				case "getStatus":
+				case "getStatus": {
 					res.writeHead(200, headers);
 					res.end("Server is currently up.");
-				break;
+					break;
 
-				case "joinGame":
+				}
+
+				case "joinGame": {
 					if (req.url.includes("name=") && req.url.includes("code=")) {
 
 						// checks if name includes Moderator
@@ -55,7 +57,7 @@ let server = http.createServer(function(req, res) {
 						}
 
 						// checks if name contains non ASCII characters
-						if(/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false){
+						if (/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false) {
 							res.writeHead(403, headers);
 							res.end("Your name must only contain ASCII characters (characters on a standard US keyboard).\n");
 							return;
@@ -82,19 +84,23 @@ let server = http.createServer(function(req, res) {
 					}
 					break;
 
-				case "publicGames":
+				}
+
+				case "publicGames": {
 					res.writeHead(200, headers);
 
 					// compiles public games into string
 					var publicGames = [];
-					for(let i = 0; i < Game.publicGames.length; i++){
+					for (let i = 0; i < Game.publicGames.length; i++) {
 						publicGames.push(Game.publicGames[i].code);
 					}
 
 					res.end(`[${publicGames.toString()}]`);
 					break;
 
-				case "startGame":
+				}
+
+				case "startGame": {
 					if (req.url.includes("name=")) {
 						// checks if name includes Moderator
 						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).toLowerCase().includes("moderator")) {
@@ -110,13 +116,13 @@ let server = http.createServer(function(req, res) {
 
 						// checks if name is over 15 characters
 						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).length > 15) {
-							res.writeHead(403, headers);	
+							res.writeHead(403, headers);
 							res.end("Your name must be at most 15 characters long.\n");
 							return;
 						}
 
 						// checks if name contains non ASCII characters
-						if(/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false){
+						if (/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false) {
 							res.writeHead(403, headers);
 							res.end("Your name must only contain ASCII characters (characters on a standard US keyboard).\n");
 							return;
@@ -128,13 +134,17 @@ let server = http.createServer(function(req, res) {
 					} else {
 						res.end("Name missing\n");
 					}
-					break;				
+					break;
 
-				default:
+				}
+
+				default: {
 					res.writeHead(404, headers);
 
 					res.end("Action invalid\n");
 					break;
+				}
+
 			}
 		}
 	} else {
@@ -167,7 +177,7 @@ wsServer.on("request", function(request) {
 				const message = JSON.parse(data.utf8Data);
 
 				const game = Game.games[Game.codes.indexOf(message.code)];
-				if(game.bannedIps.includes(request.socket.remoteAddress)){
+				if (game.bannedIps.includes(request.socket.remoteAddress)) {
 					connection.sendUTF(JSON.stringify({
 						action: "gameClosed",
 						message: `You were banned from joining ${message.code}.`
@@ -185,21 +195,44 @@ wsServer.on("request", function(request) {
 					// adds connection to player
 					player.connections.push(connection);
 					connection.player = player;
-					game.connections.push(connection);
 
 					// adds ip address to player (for ip bans)
-					if(!player.ips.includes(request.socket.remoteAddress)) player.ips.push(request.socket.remoteAddress);
+					if (!player.ips.includes(request.socket.remoteAddress)) player.ips.push(request.socket.remoteAddress);
+
+					// sends current chat to player
+					let visibleChat = deepClone(game.chat);
+					let removedMessages = 0;
+
+					for (let i = 0; i < game.chat.length; i++) {
+						// checks if permissions are appropriate for current message
+						let permissionIncluded = false;
+
+						let j = 0;
+
+						// loops through permissions and checks if they match
+						for (j = 0; j < player.chatViewPermissions.length; j++) {
+							if (player.chatViewPermissions[j].name == game.chat[i].permission) {
+								permissionIncluded = true;
+								break;
+							}
+						}
+
+						// checks if role was had at the time the message was sent
+						if (!permissionIncluded || player.chatViewPermissions[j].start > game.chat[i].date || (!!player.chatViewPermissions[j].end && player.chatViewPermissions[j].end < game.chat[i].date)) {
+							// removes current message
+							visibleChat.splice(i - removedMessages, 1);
+							removedMessages++;
+						}
+					}
+
 					// sends chat
 					connection.sendUTF(JSON.stringify({
 						action: "recieveMessage",
-						messages: game.chat
+						messages: visibleChat
 					}));
 
 					// prepares for connection to close
 					connection.on("close", function() {
-						// removes connection from game
-						game.connections = game.connections.splice(game.connections.indexOf(connection), 1);
-
 						// removes connection from player
 						player.connections = player.connections.splice(player.connections.indexOf(connection), 1);
 					});
@@ -233,7 +266,8 @@ function newGame(name) {
 		messages: [{
 			sender: "Moderator",
 			date: new Date(),
-			message: `${player.name} has opened the game room. When you have at least five players, which you can invite by giving them the code "${newGame.code}", use <c>!start</c> to start the game. You can also get more players by making the game public using the command <c>!settings public</c>. The game can be private by using the same command again.`
+			message: `${player.name} has opened the game room. When you have at least five players, which you can invite by giving them the code "${newGame.code}", use <c>!start</c> to start the game. You can also get more players by making the game public using the command <c>!settings public</c>. The game can be private by using the same command again.`,
+			permission: "everyone"
 		}]
 	});
 
@@ -250,16 +284,16 @@ function joinGame(code, name) {
 
 	// makes sure code is valid
 	if (index == -1) {
-		return {failed: true, reason: "Game not found."};
+		return { failed: true, reason: "Game not found." };
 	} else {
 		// checks if game already started
-		if(Game.games[index].inGame) return {failed: true, reason: "That game already started. It's too late to join now."};
+		if (Game.games[index].inGame) return { failed: true, reason: "That game already started. It's too late to join now." };
 
 		// joins game and returns new player password
 		let player = Game.games[index].join(name);
 
-		if(player.failed == true){
-			return {failed: true, reason: player.reason};
+		if (player.failed == true) {
+			return { failed: true, reason: player.reason };
 		}
 
 		// message that they joined the game
@@ -268,7 +302,8 @@ function joinGame(code, name) {
 			messages: [{
 				sender: "Moderator",
 				date: new Date(),
-				message: `${player.name} has joined the game.`
+				message: `${player.name} has joined the game.`,
+				permission: "everyone"
 			}]
 		});
 

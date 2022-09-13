@@ -22,15 +22,15 @@ function Player(name, game, host = false) {
 
 	this.chatSendPermission = "everyone";
 	this.chatViewPermissions = [{
-			name: "everyone", // public messages, where most chat happens
-			start: new Date(0), // early date to see messages sent before joining
-			end: null
-		},
-		{
-			name: `user:${this.name}`, // private messages to only user, typically from Moderator
-			start: new Date(0), // early date to see messages sent before joining
-			end: null
-		}
+		name: "everyone", // public messages, where most chat happens
+		start: new Date(0), // early date to see messages sent before joining
+		end: null
+	},
+	{
+		name: `user:${this.name}`, // private messages to only user, typically from Moderator
+		start: new Date(0), // early date to see messages sent before joining
+		end: null
+	}
 	];
 
 	this.leaveGame = function() {
@@ -142,7 +142,7 @@ function Player(name, game, host = false) {
 							return '&#' + i.charCodeAt(0) + ';'
 						}), // removes html from message
 						date: new Date(),
-						permission: "everyone"
+						permission: player.chatSendPermission
 					}]
 				};
 
@@ -154,6 +154,8 @@ function Player(name, game, host = false) {
 		// global commands
 		function(message, player) {
 			if (message.action == "sendMessage" && !!message.message) {
+				// complicated commands with parameters use if statements
+
 				// !ban command
 				if (message.message.substring(0, 5) == "!ban ") {
 					// checks if game started
@@ -391,9 +393,10 @@ function Player(name, game, host = false) {
 					}
 				}
 
+				// commands without parameters use switch statement
 				switch (message.message) {
 					// !players command
-					case "!players":
+					case "!players": {
 						var playersList = [];
 
 						// gets list of player names
@@ -412,9 +415,10 @@ function Player(name, game, host = false) {
 							}]
 						});
 						break;
+					}
 
-						// !settings command
-					case "!settings":
+					// !settings command
+					case "!settings": {
 						player.game.sendMessage({
 							action: "recieveMessage",
 							messages: [{
@@ -440,8 +444,10 @@ function Player(name, game, host = false) {
 
 						break;
 
-						// !settings allowPlayersToJoin command
-					case "!settings allowPlayersToJoin":
+					}
+
+					// !settings allowPlayersToJoin command
+					case "!settings allowPlayersToJoin": {
 						// checks if game started
 						if (player.game.inGame) {
 							return;
@@ -479,8 +485,10 @@ function Player(name, game, host = false) {
 
 						break;
 
-						// !settings public command
-					case "!settings public":
+					}
+
+					// !settings public command
+					case "!settings public": {
 						// checks if game started
 						if (player.game.inGame) {
 							return;
@@ -527,8 +535,10 @@ function Player(name, game, host = false) {
 
 						break;
 
-						// !start command
-					case "!start":
+					}
+
+					// !start command
+					case "!start": {
 						if (player.game.inGame == false) {
 							if (player.game.players.length < 5) {
 								player.game.sendMessage({
@@ -545,6 +555,8 @@ function Player(name, game, host = false) {
 							}
 						}
 						break;
+					}
+
 				}
 			}
 		}
