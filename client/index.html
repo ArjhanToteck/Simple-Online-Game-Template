@@ -1,325 +1,353 @@
-const http = require("http");
-const WebSocketServer = require("websocket").server;
-const deepClone = require("lodash.clonedeep");
+<head>
+	<style>
+		button {
+			height: 25;
+			width: 105;
+		}
 
-const Game = require("./Game.js").Game;
-const Player = require("./Player.js").Player;
+		input {
+			height: 25;
+		}
+	</style>
+	<title>Game Template | ArjhanToteck</title>
+	<link rel="icon" href="/favicon.png">
+	<link href="/style.css" rel="stylesheet" type="text/css" media="all">
+</head>
 
-// replace this with frontend domain
-const frontend = "https://arjhantoteck.vercel.app";
+<body>
+	<h1 class="glitch" id="heading" data-text="Game Template ">Game Template </h1>
+	<div id="menu">
+		<br>
+		<button onclick="hostGameMenu.style.display = 'block'; joinGameMenu.style.display = 'none'; document.onkeydown = function(event){if(event.key == 'Enter') startGame()}; hostGameUsername.focus();">Host Game</button>
+		<button onclick="joinGameMenu.style.display = 'block'; hostGameMenu.style.display = 'none'; document.onkeydown = function(event){if(event.key == 'Enter') joinGame()}; joinGameCode.focus();">Join Game</button>
+    <a href="about.html"><button>About</button></a>
+		<br>
+		<br>
+		<div id="hostGameMenu" style="display:none;">
+			<input id="hostGameUsername" placeholder="Username">
+			<br>
+			<span id="hostGameError" style="display:none; color:red;">
+				<br>
+			</span>
+			<br>
+			<button onclick="startGame()">Go</button>
+		</div>
+		<div id="joinGameMenu" style="display:none;">
+			<input autocomplete="off" id="joinGameCode" placeholder="Game Code">
+			<input autocomplete="off" id="joinGameUsername" placeholder="Username">
+			<br>
+			<span id="joinGameError" style="display:none; color:red;">
+				<br>
+			</span>
+			<br>
+			<button onclick="joinGame()">Join</button>
+		</div>
+		<h2>Public Games</h2>
+		Don't have a group of friends available to play? Join a public game by using one of the codes below!
+		<div id="publicGames"></div>
+	</div>
+	<br>
+	<div id="game" style="display:none;" width:100%>
+		<div id="navbar" class="navbar" style="display:none; left: 0px; background-color:#191919;">
+			<span id="navbarText" class="glitch" style="left: 10px;" data-text="Game Template"> Game Template &nbsp;</span>
+			<button onclick="leaveGame()">Leave Game</button>
+			<a href="/"><button>Home</button></a>
+			<a href="instructions.html"><button>How to Play</button></a>
+			<a href="credits.html"><button>Credits</button></a>
+		</div>
+		<br>
+		<br>
+		<div id="chat"></div>
+		<br>
+		<div id="chatInput" style="position: fixed; bottom:10; width:100%">
+			<input style="width:75%" autocomplete="off" placeholder="Message" autofocus id="messageBox">
+			<button onclick="sendMessage()">Send</button>
+		</div>
+	</div>
+</body>
 
-// opens http server
-let server = http.createServer(function(req, res) {
-	const headers = {
-		"Access-Control-Allow-Origin": frontend,
-		"Content-Type": "text/plain"
-	};
+<script>
+	// enter your own server address here
+	const server = "online-game-server-template.arjhantoteck.repl.co";
+	let password;
+	let gameCode;
+	let connection;
 
-	if (true/*req.method == "POST"*/) {
-		// no path
-		if (req.url.split("/").length <= 1) {
-			res.writeHead(404, headers);
+	// checks if previously saved game
+	if (!!localStorage.code && !!localStorage.password) {
+		// sets data
+		password = localStorage.password;
+		gameCode = localStorage.code;
 
-			res.end("Action not specified\n");
-		} else {
-			const action = req.url.split("/")[1].split("?")[0];
+		// sets up connection
+		setUpConnection();
 
-			switch (action) {
-				case "getStatus":
-					res.writeHead(200, headers);
-					res.end("Server is currently up.");
+		// shows game
+		menu.style.display = "none";
+		game.style.display = "block";
+		heading.style.display = "none";
+		navbar.style.display = "block";
+		navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+		navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+		messageBox.focus();
+
+		// adds enter key event listener
+		document.addEventListener('keydown', function(event) {
+			if (event.key == "Enter") {
+				sendMessage();
+			}
+		});
+	} else {
+		// shows public games
+		fetch(`https://${server}/publicGames`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				if (response.ok) {
+					return response.text();
+				} else {
+					publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+					return;
+				}
+			})
+			.then(data => {
+
+				// checks if no data returned
+				if (!data || JSON.parse(data).length == 0) {
+					publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+					return;
+				}
+
+				// displays public games
+				let publicGamesList = "<br><li>" + JSON.parse(data).join("</li><li>") + "</li>";
+				publicGames.innerHTML = publicGamesList;
+			}).catch(function(error) {
+				publicGames.innerHTML = "<br><i>There are no public games open right now.</i>";
+				return;
+			});
+	}
+
+	function startGame(name = undefined) {
+
+		// sets name
+		if (!name) {
+			name = hostGameUsername.value;
+		}
+
+		let responseOk = true;
+
+		// creates game and gets code
+		fetch(`https://${server}/startGame?name=${encodeURIComponent(name)}`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				responseOk = response.ok;
+
+				return response.text();
+			})
+			.then(data => {
+				// checks if response was ok
+				if (responseOk == false) {
+					// throws recieved data as error
+					throw new Error(data);
+					return;
+				}
+
+				// clears onkeydown event listener
+				document.onkeydown = undefined;
+
+				let parsedData = JSON.parse(data);
+
+				// sets password
+				localStorage.password = parsedData.password;
+				password = parsedData.password;
+
+				// sets code
+				localStorage.code = parsedData.code;
+				gameCode = parsedData.code;
+
+				// shows game
+				menu.style.display = "none";
+				game.style.display = "block";
+				heading.style.display = "none";
+				navbar.style.display = "block";
+				navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+				navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+				messageBox.focus();
+
+
+				// adds enter key event listener
+				document.addEventListener('keydown', function(event) {
+					if (event.key == "Enter") {
+						sendMessage();
+					}
+				})
+
+				setUpConnection();
+			}).catch(function(error) {
+				if (error.message == "Failed to fetch") error.message = "There was a problem connecting to the server. This means either the server is having issues or your internet is.";
+				hostGameError.style.display = "block";
+				hostGameError.innerHTML = "<br>" + error.message;
+			});
+	}
+
+	function joinGame(code = undefined, name = undefined) {
+
+		// sets name
+		if (!name) {
+			name = joinGameUsername.value;
+		}
+
+		// sets code
+		if (!code) {
+			code = joinGameCode.value;
+		}
+
+		let responseOk = true;
+
+		fetch(`https://${server}/joinGame?code=${code}&name=${encodeURIComponent(name)}`, {
+				method: "POST"
+			})
+			.then(response => {
+				// checks if response was ok
+				responseOk = response.ok;
+
+				return response.text();
+			})
+			.then(function(data) {
+				// checks if response was ok
+				if (responseOk == false) {
+					// throws recieved data as error
+					throw new Error(data);
+					return;
+				}
+
+				// clears onkeydown event listener
+				document.onkeydown = undefined;
+
+				// sets password
+				localStorage.password = data;
+				password = data;
+
+				// sets code
+				localStorage.code = code;
+				gameCode = code;
+
+				// shows game
+				menu.style.display = "none";
+				game.style.display = "block";
+				heading.style.display = "none";
+				navbar.style.display = "block";
+				navbarText.innerHTML = `Game ${gameCode} &nbsp;`;
+				navbarText.dataset.text = `Game ${gameCode} &nbsp;`;
+				messageBox.focus();
+
+				// adds enter key event listener
+				document.addEventListener('keydown', function(event) {
+					if (event.key == "Enter") {
+						sendMessage();
+					}
+				});
+
+				setUpConnection();
+			}).catch(function(error) {
+				if (error.message == "Failed to fetch") error.message = "There was a problem connecting to the server. This means either the server is having issues or your internet is.";
+				joinGameError.style.display = "block";
+				joinGameError.innerHTML = "<br>" + error.message;
+			});
+	}
+
+	function leaveGame(){
+		connection.send(JSON.stringify({
+			password: password,
+			code: gameCode,
+			action: "leaveGame",
+			date: new Date().toUTCString()
+		}));
+	}
+
+	function setUpConnection() {
+		// establishes connection with websocket server
+		connection = new WebSocket(`wss://${server}`);
+
+		// waits until connection opened
+		connection.addEventListener("open", function(event) {
+			console.log("opened");
+			connection.send(JSON.stringify({
+				password: password,
+				code: gameCode,
+				action: "linkConnection"
+			}));
+		});
+
+		// checks if scrolled down (for auto scroll script)
+		let scrolledToBottom = true;
+
+		window.onscroll = function(e) {
+			scrolledToBottom = (window.innerHeight + window.pageYOffset) >= document.body.offsetHeight;
+		};
+
+		// recieve websocket messages
+		connection.addEventListener("message", function(event) {
+			const message = JSON.parse(event.data);
+			handleWebSocketMessage(message, scrolledToBottom);
+		});
+	}
+
+	function sendMessage() {
+		connection.send(JSON.stringify({
+			password: password,
+			code: gameCode,
+			action: "sendMessage",
+			date: new Date().toUTCString(),
+			message: messageBox.value
+		}));
+		messageBox.value = "";
+	}
+
+	function handleWebSocketMessage(message, scrolledToBottom) {
+		console.log(message);
+
+		switch (message.action) {
+			// recieves chat message
+			case "recieveMessage":
+				// loops through every sent message
+				for (var i = 0; i < message.messages.length; i++) {
+					// parses date
+					let date = new Date(message.messages[i].date);
+					let dateString = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().substring(2)}, ${date.getHours() > 12 ? date.getHours() - 12 : date.getHours()}:${date.getMinutes().toString().length == 2 ? date.getMinutes() : "0" + date.getMinutes()} ${date.getHours() > 12 ? "PM" : "AM"}`;
+
+					// shows each message
+					chat.innerHTML += `<div><span style="background-color: white; color: #262626">${message.messages[i].sender} (${dateString})</span><br><span>${message.messages[i].message}</span><br><br></div>`;
+
+				}
+
+				// autoscroll script
+				if (scrolledToBottom) {
+					window.scrollTo(0, document.body.scrollHeight);
+				}
 				break;
 
-				case "joinGame":
-					if (req.url.includes("name=") && req.url.includes("code=")) {
+				// clears chat
+			case "clearChat":
+				chat.innerHTML = "";
+				connection.close();
+				setUpConnection();
+				break;
 
-						// checks if name includes Moderator
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).toLowerCase().includes("moderator")) {
-							res.writeHead(403, headers);
-							res.end('Your name may not contain the word "moderator."\n');
-							return;
-						}
+				// game closes
+			case "gameClosed":
+				alert(message.message);
+				localStorage.clear();
+				location.reload();
+				break;
 
-						// checks if name is under 3 characters
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).length < 3) {
-							res.writeHead(403, headers);
-							res.end("Your name must be at least 3 letters long.\n");
-							return;
-						}
-
-						// checks if name is over 15 characters
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).length > 15) {
-							res.writeHead(403, headers);
-							res.end("Your name must be at most 15 characters long.\n");
-							return;
-						}
-
-						// checks if name contains non ASCII characters
-						if(/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false){
-							res.writeHead(403, headers);
-							res.end("Your name must only contain ASCII characters (characters on a standard US keyboard).\n");
-							return;
-						}
-
-						// attempts to join game
-						const response = joinGame(decodeURIComponent(req.url.split("code=")[1].split("&")[0]), decodeURIComponent(req.url.split("name=")[1].split("&")[0]), false);
-
-						// invalid code
-						if (response.failed) {
-							res.writeHead(404, headers);
-
-							res.end(`${response.reason}\n`);
-						} else {
-							// successfully joined game and returns player password
-							res.writeHead(200, headers);
-
-							res.end(response);
-						}
-					} else {
-						res.writeHead(404, headers);
-
-						res.end("Name and/or code missing\n");
-					}
-					break;
-
-				case "publicGames":
-					res.writeHead(200, headers);
-
-					// compiles public games into string
-					var publicGames = [];
-					for(let i = 0; i < Game.publicGames.length; i++){
-						publicGames.push(Game.publicGames[i].code);
-					}
-
-					res.end(`[${publicGames.toString()}]`);
-					break;
-
-				case "startGame":
-					if (req.url.includes("name=")) {
-						// checks if name includes Moderator
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).toLowerCase().includes("moderator")) {
-							res.writeHead(403, headers);
-							res.end('Your name may not contain the word "moderator."\n');
-						}
-
-						// checks if name is under 3 characters
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).length < 3) {
-							res.writeHead(403, headers);
-							res.end("Your name must be at least 3 letters long.\n");
-						}
-
-						// checks if name is over 15 characters
-						if (decodeURIComponent(req.url.split("name=")[1].split("&")[0]).length > 15) {
-							res.writeHead(403, headers);	
-							res.end("Your name must be at most 15 characters long.\n");
-							return;
-						}
-
-						// checks if name contains non ASCII characters
-						if(/^[\x00-\x7F]*$/.test(decodeURIComponent(req.url.split("name=")[1].split("&")[0])) == false){
-							res.writeHead(403, headers);
-							res.end("Your name must only contain ASCII characters (characters on a standard US keyboard).\n");
-							return;
-						}
-
-						res.writeHead(200, headers);
-
-						res.end(JSON.stringify(newGame(decodeURIComponent(req.url.split("name=")[1].split("&")[0]))));
-					} else {
-						res.end("Name missing\n");
-					}
-					break;				
-
-				default:
-					res.writeHead(404, headers);
-
-					res.end("Action invalid\n");
-					break;
-			}
-		}
-	} else {
-		res.writeHead(405, headers);
-
-		res.end("Method Not Allowed\n");
-	}
-});
-server.listen(8443);
-console.log("Server running on port 8443");
-
-// opens websocket server
-wsServer = new WebSocketServer({
-	httpServer: server,
-	autoAcceptConnections: false
-});
-
-wsServer.on("request", function(request) {
-	// checks if origin matches
-	if (!!request.origin && request.origin.indexOf(frontend) == -1) {
-		// rejects bad request
-		request.reject();
-		return;
-	} else {
-		const connection = request.accept(null, request.origin);
-
-		// listens for connection to game
-		connection.on("message", function(data) {
-			if (verifyMessage(data)) {
-				const message = JSON.parse(data.utf8Data);
-
-				const game = Game.games[Game.codes.indexOf(message.code)];
-				if(game.bannedIps.includes(request.socket.remoteAddress)){
-					connection.sendUTF(JSON.stringify({
-						action: "gameClosed",
-						message: `You were banned from joining ${message.code}.`
-					}));
-				}
-
-				let player = game.players[game.passwords.indexOf(message.password)];
-
-				// makes sure player is up to date  in connection
-				connection.player = player;
-
-				// checks if connection is in player object
-				if (player.connections.includes(connection) == false) {
-
-					// adds connection to player
-					player.connections.push(connection);
-					connection.player = player;
-
-					// adds ip address to player (for ip bans)
-					if(!player.ips.includes(request.socket.remoteAddress)) player.ips.push(request.socket.remoteAddress);
-
-					// sends current chat to player
-					let visibleChat = deepClone(game.chat);
-					let removedMessages = 0;
-					
-					for (let i = 0; i < game.chat.length; i++) {
-						// checks if permissions are appropriate for current message
-						let permissionIncluded = false;
-
-						let j = 0;
-
-						// loops through permissions and checks if they match
-						for(j = 0; j < player.chatViewPermissions.length; j++){
-							if(player.chatViewPermissions[j].name == game.chat[i].permission){
-								permissionIncluded = true;
-								break;
-							}
-						}
-
-						// checks if role was had at the time the message was sent
-						if(!permissionIncluded || player.chatViewPermissions[j].start > game.chat[i].date || (!!player.chatViewPermissions[j].end && player.chatViewPermissions[j].end < game.chat[i].date)){
-							// removes current message
-							visibleChat.splice(i - removedMessages, 1);
-							removedMessages++;
-						}
-					}
-
-					// sends chat
-					connection.sendUTF(JSON.stringify({
-						action: "recieveMessage",
-						messages: visibleChat
-					}));
-
-					// prepares for connection to close
-					connection.on("close", function() {
-						// removes connection from player
-						player.connections = player.connections.splice(player.connections.indexOf(connection), 1);
-					});
-				}
-
-				// calls all onMessageEvents in player
-				for (let i = 0; i < player.onMessageEvents.length; i++) {
-					player.onMessageEvents[i](message, player);
-				}
-			} else {
-				connection.sendUTF(JSON.stringify({
-					action: "gameClosed",
-					message: "This game does not exist."
-				}));
-			}
-		});
-	}
-});
-
-function newGame(name) {
-	// creates new game
-	let newGame = new Game();
-
-	// creates new player 
-	let player = newGame.join(name);
-	player.host = true;
-
-	// game creation message
-	newGame.sendMessage({
-		action: "recieveMessage",
-		messages: [{
-			sender: "Moderator",
-			date: new Date(),
-			message: `${player.name} has opened the game room. When you have at least five players, which you can invite by giving them the code "${newGame.code}", use <c>!start</c> to start the game. You can also get more players by making the game public using the command <c>!settings public</c>. The game can be private by using the same command again.`,
-			permission: "everyone"
-		}]
-	});
-
-	// returns new game's code and password of new player
-	return {
-		code: newGame.code,
-		password: player.password
-	};
-}
-
-function joinGame(code, name) {
-	// gets index of code
-	const index = Game.codes.indexOf(code);
-
-	// makes sure code is valid
-	if (index == -1) {
-		return {failed: true, reason: "Game not found."};
-	} else {
-		// checks if game already started
-		if(Game.games[index].inGame) return {failed: true, reason: "That game already started. It's too late to join now."};
-
-		// joins game and returns new player password
-		let player = Game.games[index].join(name);
-
-		if(player.failed == true){
-			return {failed: true, reason: player.reason};
-		}
-
-		// message that they joined the game
-		Game.games[index].sendMessage({
-			action: "recieveMessage",
-			messages: [{
-				sender: "Moderator",
-				date: new Date(),
-				message: `${player.name} has joined the game.`,
-				permission: "everyone"
-			}]
-		});
-
-		// returns password
-		return player.password;
-	}
-}
-
-// verifies whether or not a message is valid
-function verifyMessage(data) {
-	if (data.type == "utf8") {
-		// parses message
-		const message = JSON.parse(data.utf8Data);
-
-		// checks if message is to link player and game is valid
-		if (Game.codes.includes(message.code)) {
-			const game = Game.games[Game.codes.indexOf(message.code)];
-
-			// checks if password is valid
-			if (game.passwords.includes(message.password)) {
-				let player = game.players[game.passwords.indexOf(message.password)];
-
-				return true;
-			}
+				// alert
+			case "alert":
+				alert(message.message);
+				break;
 		}
 	}
-
-	return false;
-}
+</script>
