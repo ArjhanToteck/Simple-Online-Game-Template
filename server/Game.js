@@ -70,7 +70,7 @@ function Game() {
 	// start game function
 	this.startGame = function(player) {
 		// removes game from public list
-		if (Game.publicGames.includes(this)) Game.publicGames.splice(Game.games.indexOf(this), 1);
+		if (Game.publicGames.includes(this)) Game.publicGames.splice(Game.publicGames.indexOf(this), 1);
 
 		this.chat = [];
 		this.sendMessage({
